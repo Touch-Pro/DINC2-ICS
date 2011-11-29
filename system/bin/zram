@@ -1,0 +1,31 @@
+#!/system/bin/sh
+RAMSIZE=`grep MemTotal /proc/meminfo | awk '{ print \$2 }'`
+ZRAMSIZE=$(($RAMSIZE*100))
+if [ $1 ]; then
+  mount -o rw,remount /system /system
+  if [ $1 == "enable" ]; then
+	if [ ! -d /system/etc/init.d ]; then
+		mkdir /system/etc/init.d
+	fi
+	echo "#!/system/bin/sh" > /system/etc/init.d/05zram
+	echo "insmod /system/lib/modules/lzo_compress.ko" >> /system/etc/init.d/05zram
+	echo "insmod /system/lib/modules/lzo_decompress.ko" >> /system/etc/init.d/05zram
+	echo "insmod /system/lib/modules/zram.ko" >> /system/etc/init.d/05zram
+	echo "echo 1 > /sys/block/zram0/reset" >> /system/etc/init.d/05zram
+	echo "echo $ZRAMSIZE > /sys/block/zram0/disksize" >> /system/etc/init.d/05zram
+	echo "mkswap /dev/block/zram0" >> /system/etc/init.d/05zram
+	echo "swapon /dev/block/zram0" >> /system/etc/init.d/05zram
+	chmod 555 /system/etc/init.d/05zram
+	/system/etc/init.d/05zram
+	echo "zram enabled and activated"
+  else 
+	swapoff /dev/block/zram0 >/dev/null 2>&1
+	echo 1 > /sys/block/zram0/reset >/dev/null 2>&1
+	rmmod zram
+	rm /system/etc/init.d/05zram
+	echo "zram deactivated and disabled"
+  fi
+  mount -o ro,remount /system /system
+fi
+echo
+free | grep Swap
